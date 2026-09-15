@@ -23,11 +23,13 @@
 static const unsigned int INPUT_GPIOS_NEXUS[MAX_INPUTS] = {27, 17, 22, 5, 16, 13, 12, 6};
 static const unsigned int OUTPUT_GPIOS_NEXUS[MAX_OUTPUTS] = {19, 26, 20, 21};
 static const unsigned int INPUT_GPIOS_NEXUS_LITE[2] = {17, 27};
-static const unsigned int OUTPUT_GPIOS_NEXUS_LITE[2] = {19, 26};
-static const unsigned int OUTPUT_GPIOS_STEEL[MAX_OUTPUTS] = {19, 26, 20, 21};
+static const unsigned int OUTPUT_GPIOS_NEXUS_LITE[2] = {14, 15};
+static const unsigned int OUTPUT_GPIOS_STEEL_BANK_0[MAX_OUTPUTS] = {21, 20, 16, 5};
+static const unsigned int OUTPUT_GPIOS_STEEL_BANK_1[MAX_OUTPUTS] = {26, 19, 13, 6};
 static const unsigned int OUTPUT_GPIOS_FLEX[MAX_OUTPUTS] = {19, 26, 20, 21};
 
 static char device_type[32] = "synapse_nexus";
+static int steel_dip_bank = 0;
 static int device_input_count = 8;
 static int device_output_count = 4;
 static const unsigned int *input_gpios = INPUT_GPIOS_NEXUS;
@@ -246,6 +248,21 @@ static void on_mqtt_disconnect(struct mosquitto *mosq, void *obj, int rc)
     }
 }
 
+static void set_steel_dip_bank(int bank)
+{
+    if (bank != 0 && bank != 1)
+    {
+        syslog(LOG_WARNING, "Invalid Steel DIP bank select %d; using bank 0", bank);
+        bank = 0;
+    }
+
+    steel_dip_bank = bank;
+    if (strcasecmp(device_type, "synapse_steel") == 0)
+    {
+        output_gpios = steel_dip_bank == 0 ? OUTPUT_GPIOS_STEEL_BANK_0 : OUTPUT_GPIOS_STEEL_BANK_1;
+    }
+}
+
 static void set_device_type_config(const char *type)
 {
     if (!type || type[0] == '\0')
@@ -275,8 +292,8 @@ static void set_device_type_config(const char *type)
         device_input_count = 0;
         device_output_count = 4;
         input_gpios = NULL;
-        output_gpios = OUTPUT_GPIOS_STEEL;
-        syslog(LOG_INFO, "Device type set to synapse_steel (0 inputs, 4 relay outputs)");
+        output_gpios = steel_dip_bank == 0 ? OUTPUT_GPIOS_STEEL_BANK_0 : OUTPUT_GPIOS_STEEL_BANK_1;
+        syslog(LOG_INFO, "Device type set to synapse_steel (0 inputs, 4 relay outputs, DIP bank %d)", steel_dip_bank);
     }
     else if (strcasecmp(type, "synapse_flex") == 0 || strcasecmp(type, "flex") == 0)
     {
@@ -303,7 +320,7 @@ static void mqtt_init(void)
     if (!mqtt_enabled) return;
 
     mosquitto_lib_init();
-    g_mosq = mosquitto_new("qups-guard2-ha", true, NULL);
+    g_mosq = mosquitto_new("qpio-ha", true, NULL);
     if (!g_mosq)
     {
         syslog(LOG_ERR, "Failed to create Mosquitto instance.");
@@ -468,6 +485,10 @@ static void load_config_file(const char *filepath)
         cJSON *path = cJSON_GetObjectItemCaseSensitive(gpio, "chip_path");
         if (cJSON_IsString(path) && path->valuestring)
             copy_config_string(chip_path, sizeof(chip_path), path->valuestring);
+
+        cJSON *dip_bank = cJSON_GetObjectItemCaseSensitive(gpio, "dip_bank_select");
+        if (cJSON_IsNumber(dip_bank))
+            set_steel_dip_bank(dip_bank->valueint);
 
         cJSON *device_type_gpio = cJSON_GetObjectItemCaseSensitive(gpio, "device_type");
         if (cJSON_IsString(device_type_gpio) && device_type_gpio->valuestring)
