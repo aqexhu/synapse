@@ -1,0 +1,18 @@
+{
+  "device": {
+    "name": "AQEX Synapse Nexus Lite (qPIO)"
+  },
+  "device_type": "synapse_nexus_lite",
+  "gpio": {
+    "chip_path": "/dev/gpiochip0"
+  },
+  "mqtt": {
+    "enabled": true,
+    "broker": "127.0.0.1",
+    "port": 1883,
+    "username": "",
+    "password": "",
+    "node_id": "qpio_nexus_lite",
+    "base_topic": "qpio/nexus_lite"
+  }
+}

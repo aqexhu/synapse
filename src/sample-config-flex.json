@@ -1,8 +1,8 @@
 {
   "device": {
-    "name": "AQEX Synapse Steel (qPIO)"
+    "name": "AQEX Synapse Flex (qPIO)"
   },
-  "device_type": "synapse_steel",
+  "device_type": "synapse_flex",
   "gpio": {
     "chip_path": "/dev/gpiochip0",
     "dip_bank_select": 0
@@ -11,9 +11,9 @@
     "enabled": true,
     "broker": "127.0.0.1",
     "port": 1883,
-    "username": "john",
-    "password": "john",
-    "node_id": "qpio_nexus",
-    "base_topic": "qpio"
+    "username": "",
+    "password": "",
+    "node_id": "qpio_flex",
+    "base_topic": "qpio/flex"
   }
 }

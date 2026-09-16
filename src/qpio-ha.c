@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <time.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <mosquitto.h>
 #include <cjson/cJSON.h>
 
@@ -24,9 +25,8 @@ static const unsigned int INPUT_GPIOS_NEXUS[MAX_INPUTS] = {27, 17, 22, 5, 16, 13
 static const unsigned int OUTPUT_GPIOS_NEXUS[MAX_OUTPUTS] = {19, 26, 20, 21};
 static const unsigned int INPUT_GPIOS_NEXUS_LITE[2] = {17, 27};
 static const unsigned int OUTPUT_GPIOS_NEXUS_LITE[2] = {14, 15};
-static const unsigned int OUTPUT_GPIOS_STEEL_BANK_0[MAX_OUTPUTS] = {21, 20, 16, 5};
-static const unsigned int OUTPUT_GPIOS_STEEL_BANK_1[MAX_OUTPUTS] = {26, 19, 13, 6};
-static const unsigned int OUTPUT_GPIOS_FLEX[MAX_OUTPUTS] = {19, 26, 20, 21};
+static const unsigned int OUTPUT_GPIOS_STEEL_BANK_0[MAX_OUTPUTS] = {26, 19, 13, 6};
+static const unsigned int OUTPUT_GPIOS_STEEL_BANK_1[MAX_OUTPUTS] = {21, 20, 16, 5};
 
 static char device_type[32] = "synapse_nexus";
 static int steel_dip_bank = 0;
@@ -59,6 +59,7 @@ static char mqtt_pass[64] = "";
 static char node_id[64] = "qpio_nexus";
 static char base_topic[128] = "qpio";
 static char discovery_prefix[64] = "homeassistant";
+static char ha_device_name[128] = "AQEX Synapse Nexus (qPIO)";
 
 /* Helper: Time Difference in milliseconds */
 static double diff_ms(struct timespec start, struct timespec end)
@@ -114,7 +115,7 @@ static void publish_ha_discovery(void)
     const char *device =
         "\"device\":{"
         "\"identifiers\":[\"aqex_qpio_nexus\"],"
-        "\"name\":\"AQEX Synapse Nexus (qPIO)\","
+        "\"name\":\"%s\","
         "\"manufacturer\":\"AQEX Electronics\","
         "\"model\":\"qPIO IO Module\"}";
 
@@ -124,13 +125,16 @@ static void publish_ha_discovery(void)
         snprintf(topic, sizeof(topic), "%s/binary_sensor/%s/input_%d/config",
                  discovery_prefix, node_id, i + 1);
 
+        char device_json[256];
+        snprintf(device_json, sizeof(device_json), device, ha_device_name);
+
         snprintf(payload, sizeof(payload),
                  "{\"name\":\"Input %d\","
                  "\"unique_id\":\"%s_input_%d\","
                  "\"state_topic\":\"%s/input/%d/state\","
                  "\"payload_on\":\"ON\",\"payload_off\":\"OFF\","
                  "%s}",
-                 i + 1, node_id, i + 1, base_topic, i + 1, device);
+             i + 1, node_id, i + 1, base_topic, i + 1, device_json);
 
         mosquitto_publish(g_mosq, NULL, topic, strlen(payload), payload, 1, true);
     }
@@ -141,6 +145,9 @@ static void publish_ha_discovery(void)
         snprintf(topic, sizeof(topic), "%s/switch/%s/relay_%d/config",
                  discovery_prefix, node_id, i + 1);
 
+        char device_json[256];
+        snprintf(device_json, sizeof(device_json), device, ha_device_name);
+
         snprintf(payload, sizeof(payload),
                  "{\"name\":\"Relay %d\","
                  "\"unique_id\":\"%s_relay_%d\","
@@ -148,7 +155,7 @@ static void publish_ha_discovery(void)
                  "\"command_topic\":\"%s/relay/%d/set\","
                  "\"payload_on\":\"ON\",\"payload_off\":\"OFF\","
                  "%s}",
-                 i + 1, node_id, i + 1, base_topic, i + 1, base_topic, i + 1, device);
+             i + 1, node_id, i + 1, base_topic, i + 1, base_topic, i + 1, device_json);
 
         mosquitto_publish(g_mosq, NULL, topic, strlen(payload), payload, 1, true);
     }
@@ -183,6 +190,11 @@ static void on_mqtt_message(struct mosquitto *mosq, void *obj, const struct mosq
     char command[16] = {0};
     size_t copy_len = (size_t)msg->payloadlen < sizeof(command) - 1 ? (size_t)msg->payloadlen : sizeof(command) - 1;
     memcpy(command, msg->payload, copy_len);
+
+    while (copy_len > 0 && isspace((unsigned char)command[copy_len - 1]))
+        command[--copy_len] = '\0';
+
+    syslog(LOG_INFO, "MQTT command received on %s: %s", msg->topic, command);
 
     for (int i = 0; i < device_output_count; i++)
     {
@@ -257,7 +269,7 @@ static void set_steel_dip_bank(int bank)
     }
 
     steel_dip_bank = bank;
-    if (strcasecmp(device_type, "synapse_steel") == 0)
+    if (strcasecmp(device_type, "synapse_steel") == 0 || strcasecmp(device_type, "synapse_flex") == 0)
     {
         output_gpios = steel_dip_bank == 0 ? OUTPUT_GPIOS_STEEL_BANK_0 : OUTPUT_GPIOS_STEEL_BANK_1;
     }
@@ -301,8 +313,8 @@ static void set_device_type_config(const char *type)
         device_input_count = 0;
         device_output_count = 4;
         input_gpios = NULL;
-        output_gpios = OUTPUT_GPIOS_FLEX;
-        syslog(LOG_INFO, "Device type set to synapse_flex (0 inputs, 4 relay outputs)");
+        output_gpios = steel_dip_bank == 0 ? OUTPUT_GPIOS_STEEL_BANK_0 : OUTPUT_GPIOS_STEEL_BANK_1;
+        syslog(LOG_INFO, "Device type set to synapse_flex (0 inputs, 4 relay outputs, DIP bank %d)", steel_dip_bank);
     }
     else
     {
@@ -473,6 +485,10 @@ static void load_config_file(const char *filepath)
         cJSON *type = cJSON_GetObjectItemCaseSensitive(device, "type");
         if (cJSON_IsString(type) && type->valuestring)
             set_device_type_config(type->valuestring);
+
+        cJSON *name = cJSON_GetObjectItemCaseSensitive(device, "name");
+        if (cJSON_IsString(name) && name->valuestring)
+            copy_config_string(ha_device_name, sizeof(ha_device_name), name->valuestring);
     }
 
     cJSON *device_type_item = cJSON_GetObjectItemCaseSensitive(json, "device_type");
@@ -644,14 +660,16 @@ int main(int argc, char **argv)
             mqtt_port = atoi(argv[++i]);
     }
 
-    mqtt_init();
-
     if (init_hardware() != 0)
     {
         cleanup();
         closelog();
         return EXIT_FAILURE;
     }
+
+    mqtt_init();
+    for (int i = 0; i < device_output_count; i++)
+        publish_output_state(i);
 
     if (device_input_count > 0 && pthread_create(&g_event_thread, NULL, gpio_event_thread, NULL) != 0)
     {
@@ -663,6 +681,10 @@ int main(int argc, char **argv)
 
     if (device_input_count > 0)
         pthread_join(g_event_thread, NULL);
+    else
+        while (true)
+            pause();
+
     cleanup();
     closelog();
     return 0;

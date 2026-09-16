@@ -11,9 +11,9 @@
     "enabled": true,
     "broker": "127.0.0.1",
     "port": 1883,
-    "username": "john",
-    "password": "john",
-    "node_id": "qpio_nexus",
-    "base_topic": "qpio"
+    "username": "",
+    "password": "",
+    "node_id": "qpio_steel",
+    "base_topic": "qpio/steel"
   }
 }
