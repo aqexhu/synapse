@@ -124,4 +124,7 @@ homeassistant/binary_sensor/<node_id>/input_<number>/config
 
 ## Compatible hardware
 
-- [Synapse Nexus Lite](https://www.aqex.eu/synapse-nexus-lite-raspberry-pi-io-hat.html)
+- [**Synapse Nexus / qPIO**](https://www.aqex.eu/qpio-raspberry-pi-io-module-with-8-input-4-output.html): 8 inputs and 4 relay outputs.
+- [**Synapse Nexus Lite**](https://www.aqex.eu/synapse-nexus-lite-raspberry-pi-io-hat.html): 2 inputs and 2 relay outputs.
+- [**Synapse Steel / qReCon**](https://www.aqex.eu/qrecon-raspberry-pi-relay-module-with-4-output.html): 4 relay outputs with selectable GPIO bank 0 or 1.
+- [**Synapse Flex / qReCon Flex**](https://www.aqex.eu/qrecon-flex-raspberry-pi-relay-module-with-4-output.html): 4 relay outputs with selectable GPIO bank 0 or 1.
