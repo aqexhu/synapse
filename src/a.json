@@ -1,11 +1,10 @@
 {
   "device": {
-    "name": "AQEX Synapse Steel (qPIO)"
+    "name": "AQEX Synapse Nexus (qPIO)"
   },
-  "device_type": "synapse_steel",
+  "device_type": "synapse_nexus",
   "gpio": {
-    "chip_path": "/dev/gpiochip0",
-    "dip_bank_select": 0
+    "chip_path": "/dev/gpiochip0"
   },
   "mqtt": {
     "enabled": true,
@@ -14,6 +13,6 @@
     "username": "john",
     "password": "john",
     "node_id": "qpio_nexus",
-    "base_topic": "qpio"
+    "base_topic": "qpio/nexus"
   }
 }

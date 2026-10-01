@@ -237,7 +237,16 @@ static void on_mqtt_connect(struct mosquitto *mosq, void *obj, int result)
             syslog(LOG_ERR, "MQTT subscribe failed for %s: %s", sub_topic, mosquitto_strerror(subscribe_result));
         }
 
+        // Publish Home Assistant Discovery Configurations
         publish_ha_discovery();
+
+        //  Publish initial input states
+        for (int i = 0; i < device_input_count; i++)
+            publish_input_state(i);
+
+        // Publish initial output states
+        for (int i = 0; i < device_output_count; i++)
+            publish_output_state(i);
     }
     else
     {
@@ -612,6 +621,7 @@ int init_hardware(void)
     {
         enum gpiod_line_value val = gpiod_line_request_get_value(in_request, input_gpios[i]);
         input_states[i] = (val == GPIOD_LINE_VALUE_ACTIVE) ? 1 : 0;
+        syslog(LOG_INFO, "GPIO hardware input#%d (GPIO%d) = %s", i, input_gpios[i], (input_states[i]) ? "ACTIVE" : "INACTIVE");
         publish_input_state(i);
     }
 
